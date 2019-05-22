@@ -206,7 +206,7 @@ tidy(first_lm2)
 first_aug2 <- augment(first_lm2)
 
 first_aug2 %>%
-  ggplot(aes(x=factor(dept), y=.resid, color = dept)) +
+  ggplot(aes(x=factor(year), y=.resid)) +
     geom_boxplot() +
     labs(title="Residuals of total compensation for Public Protection Employees over time by department",
          x = "year",
@@ -214,7 +214,19 @@ first_aug2 %>%
 
 ```
 
-This plot showcases that our residuals are _roughly_ centered around 0 (given that some residuals are in the 1000s) and although their variability does not differ nearly as much as the previous residuals plot. 
+This plot showcases that our residuals are not centered around 0 (given that some residuals are in the 1000s) but their variability does seem to be nearly constant, indicating that our constant variance assumption is met. 
+
+Other than a residual plot, how do we know at a high level that one model is superior to another? 
+
+<div class="alert alert-info"> 
+**Key Point #7: Use testing methods to get quanitifiable evidence that one model is better than another. For linear regression models, the anova function, which uses the F test, is a common way of achieving this** 
+</div>   
+
+```{r anova} 
+  anova(lm_dept, first_lm2)
+```
+
+Take a look at the Pr(>F) column. The fact that this probability is so miniscule indicates that we can reject the null that our two models are the same and conclude that the second model is superior to the first.
 
 Now let's try to generalize our findings to the whole sample as opposed to just samples from the very first organization. 
 ```{r whole_model}
@@ -241,12 +253,10 @@ sample_aug %>%
 
 This residual plot is centered around 0 and the boxplots are nearly identical, indicating that our model adequately predicts total compensation given year, department and job. Great! Presenting these findings via our scatterplots to indicate how department impacts total compensation shows us how we can use our model to explain how different departments are valued by San Francisco.
 
-
-
 ## Drawing Conclusions
 
 <div class="alert alert-info"> 
-**Key Point #7: After you have evaluated your model and are sure it is adequate for the problem you are trying to solve, you are ready to make conclusions. ** 
+**Key Point #8: After you have evaluated your model and are sure it is adequate for the problem you are trying to solve, you are ready to make conclusions. ** 
 </div>  
 
 Some sample conclusions I can now make (and be confident in their statistical significance) is a ranking of departments by their total compensation, among other benefits. I can also cross reference this ordering with the estimates I glean from my model. You've followed us this far! Test yourself by presenting the data in a meaningful way and keep track of which departments you might want to work for if you ever find yourself employed by the government of San Francisco!
@@ -301,5 +311,5 @@ sample %>%
 You may be thinking that a reasonably smart person would be able to draw these same conclusions just by sifting through the data by hand themselves. This leads us to Key Point 8. 
 
 <div class="alert alert-info"> 
-**Key Point #8: The conclusions made using data science are 1) easily reproducible given the code for execution, 2) easily verifiable, and 3) statistically sound Fulfilling these three criteria not only gives your conclusions legitimacy, but will immensely aid anyone who wishes to continue research from where YOU left off.** 
+**Key Point #9: The conclusions made using data science are 1) easily reproducible given the code for execution, 2) easily verifiable, and 3) statistically sound Fulfilling these three criteria not only gives your conclusions legitimacy, but will immensely aid anyone who wishes to continue research from where YOU left off.** 
 </div>  
