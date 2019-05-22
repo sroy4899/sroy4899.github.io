@@ -1,0 +1,305 @@
+---
+title: "Data Science for Dummies"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(broom)
+library(ggplot2)
+data <- read_csv("employee-compensation.csv")
+```
+
+a guide written by Shilpa Roy and Amei Mbah
+
+## Data Science: The Numbers Never Lie
+
+With all of the talk about Big Data, it can be easy to dismiss data science and data analytics and choose to solve problems, particularly decision-making problems, using the "old" fashioned way (that is, using human intuition). The issue with diagnosing and problem-solving under such a strategy is that it is vulnerable to the biases and errors characteristic to humans.
+
+For instance, have you ever had a time when your work and efforts were ignored and mountains of praise were heaped onto someone who probably did not deserve it? The matter of who deserves a promotion using no data is decided on the fly based on a subjective analysis of who "does the most work." Numbers, on the other hand, never lie and are able to offer a degree of objectivity to such processes.
+
+What data science seeks to do is to minimize unneeded subjectivity and ambiguity. While subjective decisions can always be contested, the unbiased nature of data lends problem-solving using data science legitimacy and respect.
+
+However, although data in itself is unbiased and objective, the way data is _obtained, cleaned, analyzed, modeled, and presented_ can lend itself to bias. If you think data analysis is the problem-solving tool you want to employ, you have to do these steps right. That isn’t just a subjective observation of ours, we’ll show you each of these steps in action and the necessity of getting them perfect! 
+
+
+## The Problem
+
+The first step is to define a problem that needs solving. In the theme of looking at promotions, suppose I'm a worker in San Francisco and I want to know how pay is being distributed in my city. [This data set](https://www.kaggle.com/san-francisco/sf-employee-compensation) (taken from Kaggle) shows individual salaries for about 213,000 San Francisco City employees. The attributes include fiscal year, job title, department, overtime paid, as well as other benefits that the employee received over the year. 
+
+<div class="alert alert-info">
+  **Key Point #1: We obtained data from a reputable, trustoworthy source. For the conclusions we draw from our data to be legitimate, the data needs to be legitimate. Look for well-documented, well-sourced datasets that address your problem.**
+</div>
+
+With 213,000 individual data points, this dataset is pretty monstrous. In order to make sure the data is useful to our purpose of noticing general trends in the data and making models to represent the data, we need to "clean" the data. In this case, I want fast results, and processing and building plots and models for so much data would be difficult. To counteract it, let's sample 5% of the data (still ~10,000 datapoints). Let's use the `sample_frac` command to do just this and the `head` command to see the first couple of entries. 
+
+```{r clean}
+set.seed(1)
+sample <- data %>%
+  sample_frac(.05)
+head(sample)
+
+```
+
+
+A quality of life change we can make is changing the names of the individual columns in favor of naming conventions that make data processing easier. 
+
+Another thing we can notice about our data is whether there is missing data. If our data is missing [**systematically**](https://towardsdatascience.com/how-to-handle-missing-data-8646b18db0d4) then that means there is an error in the way the data was obtained, indicating the reliability of the data is potentially compromised. If the data is missing [**at random**](https://towardsdatascience.com/how-to-handle-missing-data-8646b18db0d4), then we can choose to either impute the values (by replacing relevant values with their means, etc.) or by choosing to ignore them altogether. 
+
+<div class="alert alert-info">
+  **Key Point #2: We "cleaned" the data by taking a _random_ sample of our data and since some of our data was missing at random, we decide to ignore those values in our computations.**
+</div>
+
+
+```{r clean 2} 
+sample <- sample %>%
+  select(-`Year Type`) %>%
+  rename(year = Year, orgCode = `Organization Group Code`, org = `Organization Group`, deptCode = `Department Code`, dept = Department, unionCode = `Union Code`, union = Union, jobFamCode = `Job Family Code`, jobFam = `Job Family`, jobCode = `Job Code`, job = Job, empId = `Employee Identifier`, baseSalary = Salaries, overtime = Overtime, otherSalary = `Other Salaries`, totalSalary = `Total Salary`, retirement = Retirement, health = `Health/Dental`, otherBenefits = `Other Benefits`, totalBenefits = `Total Benefits`, totalComp = `Total Compensation`) %>%
+  mutate(orgCode = factor(orgCode), deptCode = factor(deptCode))
+
+head(sample)
+```
+
+# Exploratory Data Analysis 
+
+Now that our data is prepped, it is time for us to get to the heart of the problem. Recall that our problem in this experiment is to notice general trends in how our city (San Francisco) pays the different departments it has under its employ. At a high level, we are guessing that a certain organization may be getting paid more over time or less over time. What we are hoping that the data showcases a level of association we can exploit by making a model that will tell us directly (as opposed to guessing) how these funds change over time.
+
+Before we can make accurate models that will explain how funds are being allotted, it is necessary to visualize the data using plots. Visualizing the data with a clear focus on the problem we are trying to solve will make it easier to spot trends that will lead us to a model. For instance, since I want to see how organizations have been paid by San Francisco _over time_, I create a plot whose data is our random sample of employee compensations, whose mapping is between year and total compensation (with a delineation of organizations), and whose geometric representation is points. 
+
+<div class="alert alert-info">
+**Key Point #3: It is necessary to visualize data to notice trends that will help us build a model. By using the _grammar of graphics_, which specifies data, mapping, and geometry, to create plots relating attributed of our data, we get closer to building a working model. **
+</div>
+
+
+```{r plot1}
+sample %>%
+  ggplot(mapping=aes(y = totalComp, x = year, color = org)) +
+    geom_point(mapping=aes(color = org)) + 
+    labs(title = "Total Compensation over time", x = "Year", y = "Total Compensation", color = "Organization") + 
+    scale_y_continuous(labels = comma, breaks = round(seq(0, 400000, by = 25000),1)) +
+    geom_smooth(method = lm, se = FALSE)
+
+```
+
+This first plot is incredibly chaotic and hard to decipher. Some organization's trend lines seem to overlap with one another and the way the points are distributed makes it hard to see any general trends. 
+
+Before we dive into making this plot better, observe the following plot. 
+```{r explore_data} 
+  sample %>%  
+    ggplot(mapping=aes(x=year, y=totalComp, group = year)) + geom_boxplot(outlier.color = NA) + ggtitle("Total Compensation over Time") 
+```
+
+The comparative boxplots above is the same data that we used in the initial plot. However, because we have chosen to represent it without conditioning, we see no trends based on organization. (Even if our initial scatterplot doesn't seem to show a relation amongst organizations and pay over the years anyway, the reason why this is important is explained in Key Point #4 below). 
+
+<div class = "alert alert-info">
+**Key Point #4: The way you present data changes how the data is viewed and potentially the conclusions one will make from it. Use plots that are most descriptive and actually pertinent to the problem at hand in this case.**
+</div>
+For us, instead of using the boxplot, we use the other plot, because our problem is to look at how the city of San Francisco allocates money for different organizations/departments, so a good plot will be one that includes those attributes in some way.
+
+Alright, now back to making that original plot better.
+In order to make our exploratory data analysis more impactful, we use something called [data conditioning](https://www.janacorp.com/blog/what-data-conditioning-and-cleaning), where we group our entities (the different people whose salaries we are examining) based on some attributes (characteristics of our entities, such as salary). 
+
+Here we decide to group based on organization and year. Why? This is because we want to notice general trends in the different organizations as time goes by. Since organizations are made up of hundreds of individual points, we want to group them all together, but we want to make sure we separate entities with different years! Thus, in a very logical way, we _condition_ on organization and year. To get rid of the chaos caused by individual data points, we attempt to _summarize_ the data by using the mean, because that gives us a gauge for the central, or typical, salary of an employee belonging to a certain organization at a certain time.  
+
+```{r plot2}
+sample %>%
+  group_by(org, year) %>%
+  summarize(total = mean(totalComp)) %>%
+  ggplot(mapping=aes(y=total, x = year, color = org)) +
+    geom_point(mapping=aes(color = org)) + 
+    labs(title="Plot A: Average Total Compensation over time", x = "Year", y = "Average Total Compensation", color = "Organization") +
+    scale_y_continuous(labels = comma, breaks = round(seq(0, 300000, by = 10000),1)) +
+    geom_smooth(method=lm, se = F)
+
+```
+
+With this plot, it is easy to see the different trends that San Francisco employee compensations have been taking. There does seem to be a slight correlation between payroll over the years based on the different organizations. 
+
+There are many different departments within each of these organizations. How do I know the money being allotted to each department individually also doesn't change? As we discussed before, the way we look at this at a high level (once again, with the ultimate end goal of creating an accurate model) is through data visualization. 
+
+We can begin this processs by creating a faceted graph that shows the total compensation for all the organizations over time, using the average compensation of each department as our data points. This gives a general idea of the trends in the data. To see things at an even more granular level, we can do some in depth analysis on a single organizations and its departments.
+
+```{r orgs}
+sample %>%
+  group_by(year, org, dept) %>%
+  summarize(total = mean(totalComp)) %>%
+  ggplot(mapping = aes(x = year, y = total, color = dept)) +
+    facet_grid(cols = vars(org)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE) +
+    scale_y_continuous(labels = comma, breaks = round(seq(0, 300000, by = 25000),1)) +
+    labs(title = "Total Compensation for all Organizations over time", x = "Year", y = "Total Compensation", color = "Department") +
+    theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+```
+
+Let's first `filter` the data for only observations that work in public works (they will have an organization code of 1) and then do the same conditioning we did before, but now instead of differentiating by organization, let's differentiate by _department_.
+```{r plot3}
+first <- filter(sample, orgCode == "01")
+
+first %>%
+  group_by(dept, year) %>%
+  summarize(total = mean(totalComp)) %>%
+  ggplot(mapping = aes(x = year, y = total, color = dept)) +
+    geom_point() +
+    geom_smooth(method = lm, se = FALSE) +
+    scale_y_continuous(labels = comma, breaks = round(seq(0, 300000, by = 25000),1)) +
+    labs(title = "Total Compensation for Public Protection Employees over time", x = "Year", y = "Plot B: Total Compensation", color = "Department")
+```
+
+Just like we suspected, although the public protection unit's salary has stayed constant, many departments within the organization are (potentially) being underfunded.
+
+## Model Making
+
+Although we have a hunch that some departments are being underfunded, we don't really have any real evidence other than our observations with a naked eye. Since the whole point of data analysis is to eliminate these type of subjective observations, we need to be sure our hunch is correct. 
+
+First, let's review the assumptions we made. First we assumed that as time goes on, the public protection organization's funding is slightly decreasing. Now we are assuming that different departments within the public protection organization are being valued differently.  
+
+<div class="alert alert-info">
+**Key Point #5: Every assumption we make about the data absolutely needs to be backed by evidence if the integrity of our model is to be maintained, as does every piece of analysis. An example is to use hypothesis testing methods as evidence.** 
+</div>
+
+First, let's see whether our assumption that the public protection department is getting increased funding over time is correct.  
+```{r plot4}
+first_lm <- lm(totalComp ~ year, first)
+tidy(first_lm)
+``` 
+
+In [hypothesis testing](https://machinelearningmastery.com/statistical-hypothesis-tests/), we define a null hypothesis and use evidence to disprove it. Here, the assumption is that the public works department is NOT increasing funding over the years, and we have to use evidence to support _our_ assumption that it is increasing. Our p-value of .706 means there is a 67% chance that the data would be distributed in the way it is and also not have a linear association with time. If we establish a cutoff probability (called the $\alpha$-level) at which the probability is too low to just be a coincidence, we can compare it with our observed value. Using the convention of 5%, a p-value of 67% means our first assumption is **not supported by evidence**. 
+
+From the third plot, department DO seem to have an impact on total compensation, so let's test for those. 
+```{r dep_org}
+lm_dept <- lm(totalComp~dept, first)
+tidy(lm_dept)
+``` 
+
+At an $\alpha$ level of 0.05, almost all departments have p-values much much less than 0.05 with the expection of the Superior Court and Juveniile Probation.
+
+Now we can create a model. This tutorial will discuss how to create and interpret linear regression models in depth, but be cognizant should know that there are plenty of other models, including polynomial regression, etc. Use what you think is best for the data represented, and if you obtain evidence through data analysis that the model is wrong, (which we will discuss soon), then you can either change the type of model you employ or change what types of data you are hoping to explain with your model. 
+```{r model_first} 
+lm_aug <- augment(lm_dept)
+
+lm_aug %>%
+  ggplot(aes(x=factor(dept), y=.resid, color = dept)) +
+    geom_boxplot() +
+    labs(title="Residuals of total compensation for Public Protection Employees over time",
+         x = "year",
+         y = "residuals") +  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
+
+```
+
+<div class="alert alert-info"> 
+**Key Point #6: Making a model is not enough. You have to evalaute the linear regression model for constant variance, and residuals centered around 0. ** 
+</div> 
+
+A **residual** is the difference between what our model expects for a value (in this case, overtime). For our linear model to be good, residuals should be centered around 0, because we want, on average, for the difference between what our model expects and what our model observes to be 0. We also need to examine the constant variance assumption, which is that the residuals are randomly dispersed and do not depend on the fitted value. In this case, the residuals are not only NOT centered at zero, taking a look at how the median and spread of the individual boxplots are different from one another, it is safe to say that a linear model that only looks at department is not adequate for explaining our data.
+
+This indicates we should either change our data or change our model. Let's try changing our data. We know that department seems to indicate total compensation, but back in Plot B, we saw that department compensation actually seemed to differ based on year. Let's add year back in and see what happens. Furthermore, your job within a department (supervisor vs intern) will also influence your compensation. Adding these additional factors in, we get the following residual plot. 
+```{r plot5}
+first_lm2 <- lm(totalComp ~ year + dept + job, first)
+tidy(first_lm2)
+
+first_aug2 <- augment(first_lm2)
+
+first_aug2 %>%
+  ggplot(aes(x=factor(dept), y=.resid, color = dept)) +
+    geom_boxplot() +
+    labs(title="Residuals of total compensation for Public Protection Employees over time by department",
+         x = "year",
+         y = "residuals") + theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())
+
+```
+
+This plot showcases that our residuals are _roughly_ centered around 0 (given that some residuals are in the 1000s) and although their variability does not differ nearly as much as the previous residuals plot. 
+
+Now let's try to generalize our findings to the whole sample as opposed to just samples from the very first organization. 
+```{r whole_model}
+sample_lm <- lm(totalComp ~ year+dept+job, sample)
+tidy(sample_lm)
+summary(sample_lm)$r.squared
+
+sample_aug <- augment(sample_lm)
+```
+
+These results indicate that the year is actually statisitcally significant in this model. Although not all the individual departments are statistically significant, the model returned an $R^{2}$ value of .6. **The R squared value tells us what proportion of the variance in the data is explained by our model** In theory, we want 100% of the variance to be explained by our model. In practice, values above 0.5 are impressive and indicates our model seems to be a good fit for the data. 
+
+Using our linear regression model, we can see that as time goes on, the average employee's compensation increases by approximately \$1,800. We can use our intuition to either attribute this to inflation, or to increased funding for raises. Further, depending on the department, the estimates showcase that if you keep everything else constant, being in the Board of Supervisors, for instance, will increase your salary by about $8000 more than the default value! 
+
+```{r model_residuals, warning=FALSE, message = FALSE} 
+sample_aug %>%
+  ggplot(aes(x=factor(year), y=.resid)) +
+    geom_boxplot(outlier.shape=NA) + scale_y_continuous(limit = c(-10000, 10000)) +
+    labs(title="Residuals of total compensation for all Employees over time",
+         x = "year",
+         y = "residuals") 
+
+```
+
+This residual plot is centered around 0 and the boxplots are nearly identical, indicating that our model adequately predicts total compensation given year, department and job. Great! Presenting these findings via our scatterplots to indicate how department impacts total compensation shows us how we can use our model to explain how different departments are valued by San Francisco.
+
+
+
+## Drawing Conclusions
+
+<div class="alert alert-info"> 
+**Key Point #7: After you have evaluated your model and are sure it is adequate for the problem you are trying to solve, you are ready to make conclusions. ** 
+</div>  
+
+Some sample conclusions I can now make (and be confident in their statistical significance) is a ranking of departments by their total compensation, among other benefits. I can also cross reference this ordering with the estimates I glean from my model. You've followed us this far! Test yourself by presenting the data in a meaningful way and keep track of which departments you might want to work for if you ever find yourself employed by the government of San Francisco!
+```{r rankings}
+
+sample %>%
+    group_by(org) %>%
+    summarise(avg = mean(totalComp)) %>%
+    arrange(desc(avg)) %>%
+    rename("Total Compensation by Organization" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(totalComp)) %>%
+    arrange(desc(avg)) %>%
+    rename("Total Compensation by Department" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(baseSalary)) %>%
+    arrange(desc(avg)) %>%
+    rename("Base Salary by Department" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(overtime)) %>%
+    arrange(desc(avg)) %>%
+    rename("Overtime by Department" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(health)) %>%
+    arrange(desc(avg)) %>%
+    rename("Health & Dental Benefits by Department" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(retirement)) %>%
+    arrange(desc(avg)) %>%
+    rename("Retirement Benefits by Department" = avg)
+
+sample %>%
+    group_by(dept) %>%
+    summarise(avg = mean(totalBenefits)) %>%
+    arrange(desc(avg)) %>%
+    rename("Total Benefits by Department" = avg)
+
+```
+
+## Wrap-up
+
+You may be thinking that a reasonably smart person would be able to draw these same conclusions just by sifting through the data by hand themselves. This leads us to Key Point 8. 
+
+<div class="alert alert-info"> 
+**Key Point #8: The conclusions made using data science are 1) easily reproducible given the code for execution, 2) easily verifiable, and 3) statistically sound Fulfilling these three criteria not only gives your conclusions legitimacy, but will immensely aid anyone who wishes to continue research from where YOU left off.** 
+</div>  
